@@ -1,0 +1,11 @@
+# So a estrutura do site vai para o repositorio.
+# PDFs, tarefas e demais arquivos de entrada ficam apenas no computador.
+*
+!.gitignore
+!index.html
+!css/
+!css/**
+!js/
+!js/**
+!scripts/
+!scripts/**
