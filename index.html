@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!-- artifact:head -->
+<title>Vida Acadêmica</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<a class="skip" href="#main" data-skip>Pular para o conteúdo</a>
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><span class="logo" data-ic="cap"></span><b>Vida Acadêmica</b><span class="mono" id="today-label"></span></div>
+    <nav class="tabs" aria-label="Seções">
+      <a href="#hoje" data-tab="hoje"><i data-ic="sun"></i>Hoje</a>
+      <a href="#media" data-tab="media"><i data-ic="calc"></i>Média</a>
+      <a href="#calendario" data-tab="calendario"><i data-ic="calendar"></i>Calendário</a>
+      <a href="#hub" data-tab="hub"><i data-ic="users"></i>Hub</a>
+    </nav>
+  </div>
+  <div class="banner" id="banner" hidden><div class="wrap" id="banner-text"></div></div>
+</header>
+
+<main class="wrap" id="main">
+  <section id="tab-hoje" data-panel="hoje">
+    <div class="head">
+      <h1 class="disp">Hoje<span class="script" id="hoje-script">&nbsp;</span></h1>
+      <div class="actions hide-sm"><button class="btn primary" type="button" data-act="add-task"><i data-ic="plus"></i>Tarefa</button></div>
+    </div>
+    <div class="stack">
+      <div class="kpis" id="kpis"></div>
+      <div class="today-grid">
+        <div class="win"><div class="win-bar"><span class="dots"><i></i><i></i><i></i></span><span class="mono" id="hoje-label">Hoje</span><span class="mono wb-meta" id="hoje-meta"></span></div>
+          <div class="win-body daydetail" id="hoje-day"></div></div>
+        <div class="win"><div class="win-bar"><span class="dots"><i></i><i></i><i></i></span><span class="mono" id="prox-label">Próximo dia</span><span class="mono wb-meta" id="prox-meta"></span></div>
+          <div class="win-body daydetail" id="prox-day"></div></div>
+      </div>
+      <div class="win"><div class="win-bar"><span class="dots"><i></i><i></i><i></i></span><span class="mono">Horário semanal</span></div>
+        <div class="win-body" id="week"></div></div>
+    </div>
+  </section>
+
+  <section id="tab-media" data-panel="media" hidden>
+    <div class="head">
+      <h1 class="disp">Calculadora<span class="script">de média</span></h1>
+      <div class="actions"><button class="btn" id="add-disc" type="button"><i data-ic="plus"></i>Disciplina</button></div>
+    </div>
+    <div class="stack">
+      <div class="win"><div class="win-bar"><span class="dots"><i></i><i></i><i></i></span><span class="mono">Calculadora de média</span></div>
+        <div class="win-body" id="calc"></div></div>
+      <div class="win"><div class="win-bar"><span class="dots"><i></i><i></i><i></i></span><span class="mono">Visão do período</span></div>
+        <div class="win-body" id="overview"></div></div>
+    </div>
+  </section>
+
+  <section id="tab-calendario" data-panel="calendario" hidden>
+    <div class="head">
+      <h1 class="disp">Calendário<span class="script">de provas</span></h1>
+      <div class="actions">
+        <button class="btn" id="add-aval" type="button"><i data-ic="fileCheck"></i>Avaliação</button>
+        <button class="btn" id="add-data" type="button"><i data-ic="calendarPlus"></i><span>Data<span class="hide-sm"> acadêmica</span></span></button>
+        <button class="btn primary" id="add-task" type="button"><i data-ic="plus"></i>Tarefa</button>
+      </div>
+    </div>
+    <div class="stack">
+      <div class="win"><div class="win-bar"><span class="dots"><i></i><i></i><i></i></span><span class="mono">Próximas avaliações</span></div>
+        <div class="win-body" id="upcoming"></div></div>
+      <div class="win"><div class="win-bar"><span class="dots"><i></i><i></i><i></i></span><span class="mono" id="month-label">Mês</span></div>
+        <div class="win-body" id="calendar"></div></div>
+      <div class="win"><div class="win-bar"><span class="dots"><i></i><i></i><i></i></span><span class="mono">Atividades e prazos</span></div>
+        <div class="win-body" id="tasks"></div></div>
+    </div>
+  </section>
+
+  <section id="tab-hub" data-panel="hub" hidden>
+    <div class="head">
+      <h1 class="disp">Hub de eventos<span class="script">e horas complementares</span></h1>
+    </div>
+    <div class="stack">
+      <div class="win hub" id="hub-box"></div>
+      <div class="win"><div class="win-bar"><span class="dots"><i></i><i></i><i></i></span><span class="mono">Horas complementares</span></div>
+        <div class="win-body" id="hours"></div></div>
+    </div>
+  </section>
+</main>
+<footer class="wrap"><p>Planos de ensino, calendários acadêmicos e certificados em PDF: mande na conversa com o Claude, que ele preenche tudo aqui. Também dá para lançar à mão pelos botões de cada aba.</p></footer>
+
+<dialog id="dlg"><form id="dlg-form" method="dialog" novalidate></form></dialog>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="js/app.js"></script>
+
+</body>
+</html>
