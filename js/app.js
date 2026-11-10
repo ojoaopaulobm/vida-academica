@@ -308,9 +308,49 @@ function setTab(t, focus) {
   $$(".tabs a").forEach((a, i) => { if (a.dataset.tab === t) { a.setAttribute("aria-current", "page"); bar.style.setProperty("--i", i); } else a.removeAttribute("aria-current"); });
   if (was !== t) { bar.classList.remove("glow"); void bar.offsetWidth; bar.classList.add("glow"); }
   setFab(t);
+  if (was !== t) revealTitle($(`#tab-${t} .disp`));
   if (was !== t && compact()) scrollTo(0, tabY[t] || 0);
   // a shortcut (KPI, day link) hides the panel that held focus: hand focus to the new page's title instead of dropping it on <body>
   if (focus) { const h = $(`#tab-${t} h1`); if (h) { h.tabIndex = -1; h.focus({ preventScroll: true }); } }
+}
+// blur reveal: each word of the title becomes a .bw span (real text, so screen readers read it as usual) with its index in --k
+function revealTitle(h) {
+  if (!h || reduceMotion()) return;
+  let k = 0;
+  const walk = node => {
+    for (const n of [...node.childNodes]) {
+      if (n.nodeType === 3) {
+        if (!n.textContent.trim()) continue;
+        const frag = document.createDocumentFragment();
+        for (const part of n.textContent.split(/(\s+)/)) {
+          if (!part) continue;
+          if (/^\s+$/.test(part)) { frag.append(part); continue; }
+          const s = document.createElement("span"); s.className = "bw"; s.style.setProperty("--k", k++); s.textContent = part; frag.append(s);
+        }
+        n.replaceWith(frag);
+      } else if (n.nodeType === 1) {
+        if (n.classList.contains("bw")) n.style.setProperty("--k", k++); else walk(n);
+      }
+    }
+  };
+  walk(h);
+  h.classList.remove("reveal"); void h.offsetWidth; h.classList.add("reveal");
+}
+// tilt card: KPI tiles lean away from a mouse pointer, with a light that follows it (CSS limits it to fine pointers)
+{
+  const box = $("#kpis"), LIM = 5;
+  const tiltOk = () => matchMedia("(hover: hover) and (pointer: fine)").matches && !reduceMotion();
+  box.addEventListener("pointermove", e => {
+    const k = e.target.closest(".kpi"); if (!k || e.pointerType !== "mouse" || !tiltOk()) return;
+    const r = k.getBoundingClientRect(), px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+    k.style.setProperty("--rx", `${((0.5 - py) * LIM * 2).toFixed(2)}deg`);
+    k.style.setProperty("--ry", `${((px - 0.5) * LIM * 2).toFixed(2)}deg`);
+    k.style.setProperty("--mx", `${(px * 100).toFixed(1)}%`); k.style.setProperty("--my", `${(py * 100).toFixed(1)}%`);
+    k.classList.add("tilting");
+  });
+  box.addEventListener("pointerout", e => {
+    const k = e.target.closest(".kpi"); if (k && !k.contains(e.relatedTarget)) k.classList.remove("tilting");
+  });
 }
 window.addEventListener("hashchange", () => setTab(location.hash.slice(1)));
 $(".tabs").addEventListener("click", e => {
@@ -909,7 +949,7 @@ function taskCard(t) {
       <span class="chip ${st === "entregue" ? "ok" : st === "fazendo" ? "warn" : "line"}">${STATUS_T[st]}</span></div>
     <div class="task-meta">${tag(t.disciplinaId)}<span class="small muted">${t.prazo ? `${shortDate(t.prazo)} (${rel(n)})` : "sem prazo definido"}</span></div>
     ${objs.length ? `<details class="objfold" data-objs="${esc(t.id)}" ${(ui.objOpen[t.id] ?? !isPhone()) ? "open" : ""}><summary class="prog"><span class="bar"><span style="width:${(feitos / objs.length) * 100}%"></span></span><span class="num">${feitos}/${objs.length}</span><span class="objfold-l">objetivos</span></summary>
-    <div class="objs">${objs.map((o, i) => `<label class="obj ${o.feito ? "done" : ""}"><input type="checkbox" data-task="${esc(t.id)}" data-obj="${i}" ${o.feito ? "checked" : ""}><span>${esc(o.texto)}</span></label>`).join("")}</div></details>` : ""}
+    <div class="objs">${objs.map((o, i) => `<label class="obj ${o.feito ? "done" : ""}${tickCls(t.id, i)}"><span class="cbx"><input type="checkbox" data-task="${esc(t.id)}" data-obj="${i}" ${o.feito ? "checked" : ""}><svg class="ck" viewBox="0 0 20 20" aria-hidden="true"><path pathLength="1" d="M5.5 10.5l3 3.2 6-7"/></svg></span><span class="ot"><span>${esc(o.texto)}</span></span></label>`).join("")}</div></details>` : ""}
     ${t.obs ? `<div class="small muted">${esc(t.obs)}</div>` : ""}
     ${t.link ? `<a class="small lnk" href="${esc(t.link)}" target="_blank" rel="noopener">${ICON.link}Abrir link da entrega</a>` : ""}
     <div class="task-f"><button type="button" class="btn sm${fin ? " ghost" : ""}" data-task-all="${esc(t.id)}" data-v="${fin ? 0 : 1}">${fin ? ICON.undo + "Marcar como não concluída" : ICON.check + "Concluir tudo"}</button></div>
@@ -919,10 +959,20 @@ function taskCard(t) {
 $("#tasks").addEventListener("toggle", e => {
   const d = e.target; if (d.matches && d.matches("details.objfold")) ui.objOpen[d.dataset.objs] = d.open;
 }, true);
+// animated checkbox: the label being ticked gets .done at once (the CSS transitions run);
+// a re-render inside the next 400ms rebuilds it with .tick/.untick and a negative delay, so the motion carries on instead of restarting
+let lastTick = null;
+function tickCls(tid, i) {
+  if (!lastTick || lastTick.key !== `${tid}#${i}`) return "";
+  const el = performance.now() - lastTick.at; if (el > 400) return "";
+  return `${lastTick.on ? " tick" : " untick"}" style="--t:-${Math.round(el)}ms`;
+}
 $("#tasks").addEventListener("change", e => {
   const cb = e.target.closest("input[data-task]"); if (!cb) return;
   const t = list("tarefas").find(x => x.id === cb.dataset.task); if (!t) return;
   const objs = structuredClone(t.objetivos || []); const i = +cb.dataset.obj; if (!objs[i]) return;
+  lastTick = { key: `${t.id}#${i}`, at: performance.now(), on: cb.checked };
+  cb.closest(".obj")?.classList.toggle("done", cb.checked);
   objs[i].feito = cb.checked;
   const wasDone = isDone(t);
   const patch = { objetivos: objs };
