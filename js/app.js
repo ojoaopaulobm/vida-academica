@@ -313,27 +313,33 @@ function setTab(t, focus) {
   // a shortcut (KPI, day link) hides the panel that held focus: hand focus to the new page's title instead of dropping it on <body>
   if (focus) { const h = $(`#tab-${t} h1`); if (h) { h.tabIndex = -1; h.focus({ preventScroll: true }); } }
 }
-// blur reveal: each word of the title becomes a .bw span (real text, so screen readers read it as usual) with its index in --k
+// blur reveal, same math as Spell UI's BlurReveal: letter by letter, stagger = 0.03s / speedReveal, each letter takes 0.3s / speedSegment.
+// Each text run becomes an .sr copy for screen readers plus aria-hidden letters (.bc, index in --k); words stay unbroken (.bw)
+const REVEAL = { speedReveal: 1.0, speedSegment: 0.5 };
 function revealTitle(h) {
   if (!h || reduceMotion()) return;
-  let k = 0;
   const walk = node => {
     for (const n of [...node.childNodes]) {
       if (n.nodeType === 3) {
         if (!n.textContent.trim()) continue;
         const frag = document.createDocumentFragment();
+        const sr = document.createElement("span"); sr.className = "sr"; sr.textContent = n.textContent; frag.append(sr);
+        const vis = document.createElement("span"); vis.className = "br"; vis.setAttribute("aria-hidden", "true");
         for (const part of n.textContent.split(/(\s+)/)) {
           if (!part) continue;
-          if (/^\s+$/.test(part)) { frag.append(part); continue; }
-          const s = document.createElement("span"); s.className = "bw"; s.style.setProperty("--k", k++); s.textContent = part; frag.append(s);
+          if (/^\s+$/.test(part)) { vis.append(part); continue; }
+          const w = document.createElement("span"); w.className = "bw";
+          for (const ch of part) { const c = document.createElement("span"); c.className = "bc"; c.textContent = ch; w.append(c); }
+          vis.append(w);
         }
-        n.replaceWith(frag);
-      } else if (n.nodeType === 1) {
-        if (n.classList.contains("bw")) n.style.setProperty("--k", k++); else walk(n);
-      }
+        frag.append(vis); n.replaceWith(frag);
+      } else if (n.nodeType === 1 && !n.classList.contains("br") && !n.classList.contains("sr")) walk(n);
     }
   };
   walk(h);
+  h.querySelectorAll(".bc").forEach((c, k) => c.style.setProperty("--k", k));
+  h.style.setProperty("--st", `${0.03 / REVEAL.speedReveal}s`);
+  h.style.setProperty("--du", `${0.3 / REVEAL.speedSegment}s`);
   h.classList.remove("reveal"); void h.offsetWidth; h.classList.add("reveal");
 }
 // tilt card: KPI tiles lean away from a mouse pointer, with a light that follows it (CSS limits it to fine pointers)
@@ -784,9 +790,9 @@ function cevHtml(its) {
 }
 // the legend is rendered twice: under the grid on wide screens (lg-d), under the day detail on narrow ones (lg-m); CSS shows one
 const legendHtml = c => `<div class="legend ${c}"><span class="flabel">Legenda</span>
-        <span><i class="lgi prova">${ICON.fileCheck}</i>Avaliação</span><span><i class="lgi entrega">${ICON.inbox}</i>Entrega</span><span><i class="lgi prazo">${ICON.flag}</i>Prazo acadêmico</span>
-        <span><i class="lgi off">${ICON.calendarX}</i>Feriado / sem aula</span><span><i class="lgi ev">${ICON.users}</i>Evento</span><span><i class="lgi aula">${ICON.cap}</i>Aulas no dia</span>
-        <span><i class="sw hoje"></i>Hoje</span><span><i class="sw fal"></i>Falta</span>${c === "lg-d" ? `<span class="hint">Setas: dias · PgUp/PgDn: mês</span>` : ""}</div>`;
+        <span class="lb prova">${ICON.fileCheck}Avaliação</span><span class="lb entrega">${ICON.inbox}Entrega</span><span class="lb prazo">${ICON.flag}Prazo acadêmico</span>
+        <span class="lb off">${ICON.calendarX}Feriado / sem aula</span><span class="lb ev">${ICON.users}Evento</span><span class="lb aula">${ICON.cap}Aulas no dia</span>
+        <span class="lb hoje">Hoje</span><span class="lb fal"><i></i>Falta</span>${c === "lg-d" ? `<span class="hint">Setas: dias · PgUp/PgDn: mês</span>` : ""}</div>`;
 function renderCalendar() {
   const el = $("#calendar");
   const m = ui.month; const y = m.getFullYear(), mo = m.getMonth();

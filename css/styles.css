@@ -314,13 +314,21 @@ button.cd.hot:focus-visible{outline-color:var(--steel)}
 .day .marks i.ev{background:var(--gold)}
 .day .marks .au-n{display:none;align-items:center;gap:2px;font-family:var(--f-mono);font-size:.7rem;font-weight:600;color:var(--muted);line-height:1}
 .day .marks .au-n .ic{width:13px;height:13px;vertical-align:0}
-.legend{display:grid;gap:8px;font-size:.84rem}
-.legend span{display:flex;align-items:center;gap:8px}
-/* legend chips: the kind's icon on the kind's tint, the same pairing as the pills and the day panel headers */
-.lgi{width:20px;height:20px;border-radius:5px;display:grid;place-items:center;flex:none;background:var(--surface-2);color:var(--muted)}
-.lgi .ic{width:13px;height:13px;vertical-align:0}
-.lgi.prova{background:var(--bad-bg);color:var(--bad)}.lgi.entrega{background:var(--warn-bg);color:var(--warn)}.lgi.prazo{background:var(--info-bg);color:var(--info)}
-.lgi.ev{background:color-mix(in srgb,var(--gold) 22%,var(--surface));color:color-mix(in srgb,var(--gold) 45%,var(--ink))}.lgi.aula{color:var(--steel)}
+.legend{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:.84rem}
+.legend .flabel{flex-basis:100%;margin-bottom:2px}
+/* legend = Spell UI "badge": each kind is a small tinted label, text in the kind's own color (same pairs as the calendar and the day panel);
+   the icon stays inside, because the calendar days show the same icons */
+.lb{--b-bg:var(--surface-2);--b-fg:var(--muted);display:inline-flex;align-items:center;gap:5px;padding:5px 8px;border-radius:6px;border:1px solid transparent;
+  font-size:.78rem;font-weight:550;line-height:1;white-space:nowrap;background:var(--b-bg);color:var(--b-fg)}
+.lb .ic{width:13px;height:13px;vertical-align:0}
+.lb.prova{--b-bg:var(--bad-bg);--b-fg:var(--bad)}
+.lb.entrega{--b-bg:var(--warn-bg);--b-fg:var(--warn)}
+.lb.prazo{--b-bg:var(--info-bg);--b-fg:var(--info)}
+.lb.ev{--b-bg:color-mix(in srgb,var(--gold) 22%,var(--surface));--b-fg:color-mix(in srgb,var(--gold) 45%,var(--ink))}
+.lb.aula{--b-bg:var(--navy-soft);--b-fg:var(--steel)}
+.lb.hoje{--b-bg:transparent;--b-fg:var(--ink);border-color:var(--steel)}
+.lb.fal{--b-bg:var(--bad);--b-fg:var(--surface)}
+.lb.fal i{width:8px;height:8px;background:currentColor;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
 .sw{width:14px;height:14px;border-radius:4px;display:inline-block;flex:none}
 .sw.prova{background:var(--navy)}.sw.entrega{background:var(--navy-soft);border:1px solid var(--line-strong)}.sw.hoje{outline:2px solid var(--steel);outline-offset:-2px}.sw.off{background:repeating-linear-gradient(45deg,var(--line-strong) 0 2px,transparent 2px 5px)}.sw.ev{background:var(--gold);border-radius:50%;width:8px;height:8px;margin:3px}
 /* study tip: its own box, a lamp in a gold disc on the left, so it never reads as a fourth day group */
@@ -648,8 +656,8 @@ footer p{font-size:.82rem;color:var(--muted);margin:0}
   .day .marks i.au{display:none}
   .day .marks .au-n{display:inline-flex}
   .legend.lg-m{display:none}
-  .legend.lg-d{display:flex;flex-wrap:wrap;align-items:center;gap:8px 22px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
-  .legend.lg-d .flabel{margin-right:4px}
+  .legend.lg-d{display:flex;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+  .legend.lg-d .flabel{flex-basis:auto;margin:0 6px 0 0}
   .legend .hint{flex-basis:100%;color:var(--muted);font-size:.78rem}
   /* overview table: scores as small chips, whole row is a target */
   td .g{display:inline-flex;align-items:baseline;gap:6px;min-width:0;padding:2px 8px;margin:0 2px 4px 0;border-radius:6px;background:var(--surface-2);border:1px solid var(--line);font-size:.82rem;font-weight:600}
@@ -820,8 +828,6 @@ footer p{font-size:.82rem;color:var(--muted);margin:0}
   .day.out .marks{opacity:.55}
   .day.out.prova .n{background:color-mix(in srgb,var(--navy) 72%,var(--surface));color:var(--on-navy)}
   .side .ct{opacity:1;background:color-mix(in srgb,var(--deep) 40%,transparent)}
-  .legend{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 6px;font-size:.8rem}
-  .legend .flabel{grid-column:1/-1}
   .tip{padding:12px;font-size:.875rem}
   /* tasks: tighter cards; checklists start closed */
   .tasks{gap:14px}
@@ -910,10 +916,12 @@ footer p{font-size:.82rem;color:var(--muted);margin:0}
 }
 @media (max-width:379px){.brand .mono{display:none}}
 
-/* page titles = Spell UI "blur reveal": on each tab change the words come into focus one after another (setTab adds .reveal) */
-.bw{display:inline-block}
-.disp.reveal .bw{animation:bw-in .5s var(--ease) calc(var(--k)*55ms) both}
-@keyframes bw-in{from{opacity:0;filter:blur(10px);transform:translateY(8px)}to{opacity:1;filter:none;transform:none}}
+/* page titles = Spell UI "blur reveal": on each tab change the letters come into focus one after another (setTab adds .reveal;
+   --st is the stagger and --du each letter's duration, both from REVEAL in app.js) */
+.bw{display:inline-block;white-space:nowrap}
+.bc{display:inline-block}
+.disp.reveal .bc{animation:bw-in var(--du,.6s) ease-out calc(var(--k)*var(--st,30ms)) both}
+@keyframes bw-in{from{opacity:0;filter:blur(12px);transform:translateY(10px)}to{opacity:1;filter:none;transform:none}}
 
 /* KPI tiles = Spell UI "tilt card": with a mouse, the tile leans away from the pointer and a soft light follows it.
    JS only sets --rx/--ry/--mx/--my and .tilting; touch screens and reduced motion never get it */
