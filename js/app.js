@@ -303,7 +303,11 @@ function setTab(t, focus) {
   const was = ui.tab; if (was !== t && compact()) tabY[was] = scrollY;
   ui.tab = t;
   $$("[data-panel]").forEach(p => p.hidden = p.dataset.panel !== t);
-  $$(".tabs a").forEach(a => { if (a.dataset.tab === t) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+  // the phone bar's sliding pill follows --i; .glow replays the light under it on every change
+  const bar = $(".tabs");
+  $$(".tabs a").forEach((a, i) => { if (a.dataset.tab === t) { a.setAttribute("aria-current", "page"); bar.style.setProperty("--i", i); } else a.removeAttribute("aria-current"); });
+  if (was !== t) { bar.classList.remove("glow"); void bar.offsetWidth; bar.classList.add("glow"); }
+  setFab(t);
   if (was !== t && compact()) scrollTo(0, tabY[t] || 0);
   // a shortcut (KPI, day link) hides the panel that held focus: hand focus to the new page's title instead of dropping it on <body>
   if (focus) { const h = $(`#tab-${t} h1`); if (h) { h.tabIndex = -1; h.focus({ preventScroll: true }); } }
@@ -1421,6 +1425,38 @@ document.addEventListener("click", e => {
     ({ avaliacoes: avalForm, tarefas: taskForm, datas: dataForm, eventos: eventForm, certificados: certForm, ligas: ligaForm, disciplinas: discForm })[col]?.(it);
   }
 });
+/* ---------- "+" button: each tab adds its own thing; on Calendário it opens a small menu ---------- */
+const FAB = {
+  hoje: { label: "Nova tarefa", run: () => taskForm() },
+  media: { label: "Nova disciplina", run: () => discForm() },
+  calendario: { label: "Cadastrar no calendário", menu: true },
+  hub: { label: "Novo evento", run: () => eventForm() },
+};
+const FAB_ITEM = { aval: () => avalForm(), data: () => dataForm(), task: () => taskForm() };
+function fabMenu(open, focusFab) {
+  const m = $("#fab-menu"), b = $("#fab");
+  if (m.hidden === !open) return;
+  m.hidden = !open;
+  if (FAB[ui.tab]?.menu) b.setAttribute("aria-expanded", open);
+  if (open) m.querySelector("button").focus(); else if (focusFab) b.focus();
+}
+function setFab(t) {
+  const f = FAB[t] || FAB.hoje, b = $("#fab");
+  fabMenu(false);
+  b.setAttribute("aria-label", f.label); b.title = f.label;
+  if (f.menu) { b.setAttribute("aria-haspopup", "menu"); b.setAttribute("aria-expanded", "false"); b.setAttribute("aria-controls", "fab-menu"); }
+  else ["aria-haspopup", "aria-expanded", "aria-controls"].forEach(k => b.removeAttribute(k));
+}
+$("#fab").addEventListener("click", () => { const f = FAB[ui.tab] || FAB.hoje; if (f.menu) fabMenu($("#fab-menu").hidden); else f.run(); });
+$("#fab-menu").addEventListener("click", e => { const it = e.target.closest("[data-fab]"); if (!it) return; fabMenu(false); FAB_ITEM[it.dataset.fab](); });
+$("#fab-menu").addEventListener("keydown", e => {
+  const items = $$("#fab-menu [role=menuitem]"), i = items.indexOf(document.activeElement);
+  if (e.key === "Escape") { e.preventDefault(); fabMenu(false, true); }
+  else if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); items[(i + (e.key === "ArrowDown" ? 1 : items.length - 1)) % items.length].focus(); }
+  else if (e.key === "Home" || e.key === "End") { e.preventDefault(); items[e.key === "Home" ? 0 : items.length - 1].focus(); }
+  else if (e.key === "Tab") fabMenu(false);
+});
+document.addEventListener("pointerdown", e => { if (!$("#fab-menu").hidden && !e.target.closest("#fab-menu,#fab")) fabMenu(false); });
 $("#add-disc").addEventListener("click", () => discForm());
 $("#add-aval").addEventListener("click", () => avalForm());
 $("#add-data").addEventListener("click", () => dataForm());

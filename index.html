@@ -17,15 +17,15 @@
 <header class="top">
   <div class="wrap">
     <div class="brand"><span class="logo" data-ic="cap"></span><b>Vida Acadêmica</b><span class="mono" id="today-label"></span></div>
-    <nav class="tabs" aria-label="Seções">
-      <a href="#hoje" data-tab="hoje"><i data-ic="sun"></i>Hoje</a>
-      <a href="#media" data-tab="media"><i data-ic="calc"></i>Média</a>
-      <a href="#calendario" data-tab="calendario"><i data-ic="calendar"></i>Calendário</a>
-      <a href="#hub" data-tab="hub"><i data-ic="users"></i>Hub</a>
-    </nav>
   </div>
   <div class="banner" id="banner" hidden><div class="wrap" id="banner-text"></div></div>
 </header>
+<nav class="tabs" aria-label="Seções">
+  <a href="#hoje" data-tab="hoje"><i data-ic="sun"></i><span class="tl">Hoje</span></a>
+  <a href="#media" data-tab="media"><i data-ic="calc"></i><span class="tl">Média</span></a>
+  <a href="#calendario" data-tab="calendario"><i data-ic="calendar"></i><span class="tl">Calendário</span></a>
+  <a href="#hub" data-tab="hub"><i data-ic="users"></i><span class="tl">Hub</span></a>
+</nav>
 
 <main class="wrap" id="main">
   <section id="tab-hoje" data-panel="hoje">
@@ -91,6 +91,12 @@
 </main>
 <footer class="wrap"><p>Planos de ensino, calendários acadêmicos e certificados em PDF: mande na conversa com o Claude, que ele preenche tudo aqui. Também dá para lançar à mão pelos botões de cada aba.</p></footer>
 
+<button class="fab" id="fab" type="button" aria-label="Nova tarefa" title="Nova tarefa"><i data-ic="plus"></i></button>
+<div class="fab-menu" id="fab-menu" role="menu" aria-label="Cadastrar no calendário" hidden>
+  <button type="button" role="menuitem" data-fab="aval"><i data-ic="fileCheck"></i>Avaliação</button>
+  <button type="button" role="menuitem" data-fab="data"><i data-ic="calendarPlus"></i>Data acadêmica</button>
+  <button type="button" role="menuitem" data-fab="task"><i data-ic="list"></i>Tarefa</button>
+</div>
 <dialog id="dlg"><form id="dlg-form" method="dialog" novalidate></form></dialog>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
