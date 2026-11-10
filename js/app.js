@@ -31,6 +31,7 @@ const ICON = (() => {
     edit: `<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>`,
     x: `<path d="M18 6 6 18"/><path d="m6 6 12 12"/>`,
     check: `<path d="M20 6 9 17l-5-5"/>`,
+    tri: `<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>`,
     undo: `<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>`,
     save: `<path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/>`,
     trash: `<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>`,
@@ -415,16 +416,6 @@ function nextBusyDay() {
   for (let i = 1; i <= 14; i++) { const s = addDays(TODAY_ISO, i); if (itemsOn(s).length) return s; }
   return addDays(TODAY_ISO, 1);
 }
-// one-line count shown at the right of each day window: "3 aulas · 1 avaliação"
-function dayMeta(day) {
-  const its = itemsOn(day); const n = k => its.filter(x => x.k === k).length;
-  const p = []; const a = n("aula"), v = n("prova"), e = n("entrega");
-  if (its.some(x => x.k === "off")) p.push("sem aula");
-  if (a) p.push(`${a} ${a === 1 ? "aula" : "aulas"}`);
-  if (v) p.push(`${v} ${v === 1 ? "avaliação" : "avaliações"}`);
-  if (e) p.push(`${e} ${e === 1 ? "entrega" : "entregas"}`);
-  return p.join(" · ");
-}
 function renderHoje() {
   $("#hoje-script").textContent = `${WD_FULL[TODAY.getDay()]}, ${TODAY.getDate()} de ${MES[TODAY.getMonth()]}`;
   $("#hoje-label").textContent = `Hoje · ${shortDate(TODAY_ISO)}`;
@@ -434,7 +425,6 @@ function renderHoje() {
   const nx = nextBusyDay();
   $("#prox-label").textContent = `${daysUntil(nx) === 1 ? "Amanhã" : "Próximo dia"} · ${shortDate(nx)}`;
   $("#prox-day").innerHTML = dayDetailHtml(nx, { head: false, empty: "Nada marcado nas próximas duas semanas." }) + tipHtml();
-  $("#hoje-meta").textContent = dayMeta(TODAY_ISO); $("#prox-meta").textContent = dayMeta(nx);
 }
 function renderKpis() {
   const el = $("#kpis");
@@ -685,20 +675,30 @@ document.addEventListener("click", e => {
 function renderOverview() {
   const el = $("#overview");
   if (loading("disciplinas")) { el.innerHTML = loadingHtml; return; }
-  const ds = sortBy(list("disciplinas"), d => d.nome || "");
+  const ds = list("disciplinas");
   if (!ds.length) { el.innerHTML = `<div class="empty"><span class="empty-ic">${ICON.list}</span><b>Nada para comparar ainda.</b><span>As disciplinas cadastradas aparecem aqui com a situação de cada uma.</span></div>`; return; }
-  el.innerHTML = `<div class="ov">${geralHtml(ds)}<div class="table-wrap"><table>
-    <thead><tr><th scope="col">Disciplina</th><th scope="col">Notas</th><th scope="col">Média lançada</th><th scope="col">Precisa</th><th scope="col">Faltas</th><th scope="col">Situação</th></tr></thead>
-    <tbody>${ds.map(d => {
-      const r = analisar(d, notasOf(d)); const f = freqOf(d);
-      const fal = `<td class="num c-fal">${f.faltas}<span class="muted small">/${f.limite}</span>${f.status[1] !== "ok" && f.faltas <= f.limite ? ` <span class="chip ${f.status[1]}">${f.status[0]}</span>` : ""}</td>`;
-      const sit = st => `<td>${f.faltas > f.limite ? `<span class="chip bad">Reprovado por falta</span>` : `<span class="chip ${st[1]}">${st[0]}</span>`}</td>`;
-      // the name is a real button (keyboard + screen reader); clicking anywhere on the row still opens the discipline
-      if (r.erro) return `<tr class="click" data-disc-row="${esc(d.id)}"><td><button type="button" class="rowbtn" data-disc-row="${esc(d.id)}"><b>${esc(d.nome)}</b></button></td><td colspan="3" class="muted small">${esc(r.erro)}</td>${fal}${sit(["Revisar", "bad"])}</tr>`;
-      const notas = r.comps.map(k => { const pv = r.partial(k); return `<span class="g small${pv == null ? " none" : ""}"><span class="muted">${esc(k.id)}</span> ${pv == null ? "—" : fmt(pv, 1, 1)}</span>`; }).join(" ");
-      const precisa = r.pend.length ? (r.needed === Infinity ? "> 10" : r.needed === 0 ? "—" : `${fmt(r.needed, 1, 1)} <span class="muted small">em ${r.pend.map(k => k.id).join(", ")}</span>`) : (r.recNeeded != null ? `${isFinite(r.recNeeded) ? fmt(r.recNeeded, 1, 1) : "> 10"} <span class="muted small">na rec.</span>` : "—");
-      return `<tr class="click" data-disc-row="${esc(d.id)}"><td><button type="button" class="rowbtn" data-disc-row="${esc(d.id)}"><span class="sq c-${corOf(d.id)}" aria-hidden="true"></span><b>${esc(d.nome)}</b></button><div class="muted small">${esc(d.codigo || "")}${d.professor ? " · " + esc(d.professor) : ""}</div></td><td>${notas}</td><td class="num">${r.pend.length ? fmt(r.atual) : fmt(r.final)}</td><td class="num">${precisa}</td>${fal}${sit(r.status)}</tr>`;
-    }).join("")}</tbody></table></div></div>`;
+  // one card per discipline, most urgent first: risk, then attention, then no grades yet, then calm
+  const PRIO = { bad: 0, warn: 1, info: 2, ok: 3 };
+  const SICON = { ok: ICON.check, warn: ICON.tri, bad: ICON.x, info: ICON.clock };
+  const cards = ds.map(d => {
+    const r = analisar(d, notasOf(d)); const f = freqOf(d);
+    const st = f.faltas > f.limite ? ["Reprovado por falta", "bad"] : r.erro ? ["Revisar", "bad"] : r.status;
+    const metric = (k, v, extra = "") => `<div class="dc-m"><span class="dc-k">${k}</span><span class="dc-v num">${v}</span>${extra}</div>`;
+    const faltas = metric("Faltas", `${f.faltas}<span class="muted">/${f.limite}</span>`, f.status[1] !== "ok" && f.faltas <= f.limite ? `<span class="chip ${f.status[1]}">${f.status[0]}</span>` : "");
+    let corpo;
+    if (r.erro) corpo = `<div class="dc-notas muted small">${esc(r.erro)}</div><div class="dc-ms">${faltas}</div>`;
+    else {
+      const notas = r.comps.map(k => { const pv = r.partial(k); return `<span class="g${pv == null ? " none" : ""}"><span class="gk">${esc(k.id)}</span>${pv == null ? "—" : fmt(pv, 1, 1)}</span>`; }).join("");
+      // the pending assessments already show as dashed chips, so "Precisa" is only the number
+      const precisa = r.pend.length ? (r.needed === Infinity ? "> 10" : r.needed === 0 ? "—" : fmt(r.needed, 1, 1)) : (r.recNeeded != null ? `${isFinite(r.recNeeded) ? fmt(r.recNeeded, 1, 1) : "> 10"} <span class="muted small">na rec.</span>` : "—");
+      corpo = `<div class="dc-notas" aria-label="Notas">${notas}</div><div class="dc-ms">${metric("Média", r.pend.length ? fmt(r.atual) : fmt(r.final))}${metric("Precisa", precisa)}${faltas}</div>`;
+    }
+    const html = `<li class="dcard c-${corOf(d.id)} s-${st[1]}" data-disc-row="${esc(d.id)}">
+      <div class="dc-id"><button type="button" class="rowbtn dc-nome" data-disc-row="${esc(d.id)}"><span class="sq" aria-hidden="true"></span>${esc(d.nome)}</button><span class="muted small dc-sub">${esc(d.codigo || "")}${d.professor ? " · " + esc(d.professor) : ""}</span></div>
+      ${corpo}<span class="sbadge ${st[1]}">${SICON[st[1]] || ""}${st[0]}</span></li>`;
+    return { html, p: PRIO[st[1]] ?? 9, nome: d.nome || "" };
+  }).sort((a, b) => a.p - b.p || a.nome.localeCompare(b.nome, "pt-BR"));
+  el.innerHTML = `<div class="ov">${geralHtml(ds)}<ul class="dlist">${cards.map(c => c.html).join("")}</ul></div>`;
 }
 $("#overview").addEventListener("click", e => {
   const tr = e.target.closest("[data-disc-row]"); if (!tr) return;
@@ -796,7 +796,6 @@ const legendHtml = c => `<div class="legend ${c}"><span class="flabel">Legenda</
 function renderCalendar() {
   const el = $("#calendar");
   const m = ui.month; const y = m.getFullYear(), mo = m.getMonth();
-  $("#month-label").textContent = `${MES[mo]} ${y}`;
   const first = new Date(y, mo, 1); const start = new Date(first); start.setDate(1 - first.getDay());
   let cells = "";
   for (let i = 0; i < 42; i++) {
@@ -907,7 +906,7 @@ function renderTasks() {
   // FLIP: after a task changes tab, the cards that stay slide into their new place instead of jumping
   const flip = ui.taskFlip && !reduceMotion(); ui.taskFlip = false;
   const before = flip ? new Map($$("#tasks article[data-tid]").map(a => [a.dataset.tid, a.getBoundingClientRect()])) : null;
-  el.innerHTML = pick + body;
+  el.innerHTML = `<div class="tasks-h"><h3>Atividades e prazos</h3></div>` + pick + body;
   if (flip) $$("#tasks article[data-tid]").forEach(a => {
     const r0 = before.get(a.dataset.tid), r1 = a.getBoundingClientRect();
     if (!r0) { a.animate([{ opacity: 0, transform: "translateY(8px)" }, { opacity: 1, transform: "none" }], { duration: 260, easing: "ease-out" }); return; }
@@ -954,7 +953,7 @@ function taskCard(t) {
     <div class="task-h"><h4><button type="button" data-edit="tarefas" data-id="${esc(t.id)}">${esc(t.titulo)}</button></h4>
       <span class="chip ${st === "entregue" ? "ok" : st === "fazendo" ? "warn" : "line"}">${STATUS_T[st]}</span></div>
     <div class="task-meta">${tag(t.disciplinaId)}<span class="small muted">${t.prazo ? `${shortDate(t.prazo)} (${rel(n)})` : "sem prazo definido"}</span></div>
-    ${objs.length ? `<details class="objfold" data-objs="${esc(t.id)}" ${(ui.objOpen[t.id] ?? !isPhone()) ? "open" : ""}><summary class="prog"><span class="bar"><span style="width:${(feitos / objs.length) * 100}%"></span></span><span class="num">${feitos}/${objs.length}</span><span class="objfold-l">objetivos</span></summary>
+    ${objs.length ? `<details class="objfold" data-objs="${esc(t.id)}" ${(ui.objOpen[t.id] ?? (!isPhone() && n != null && n <= 7)) ? "open" : ""}><summary class="prog"><span class="bar"><span style="width:${(feitos / objs.length) * 100}%"></span></span><span class="num">${feitos}/${objs.length}</span><span class="objfold-l">objetivos</span></summary>
     <div class="objs">${objs.map((o, i) => `<label class="obj ${o.feito ? "done" : ""}${tickCls(t.id, i)}"><span class="cbx"><input type="checkbox" data-task="${esc(t.id)}" data-obj="${i}" ${o.feito ? "checked" : ""}><svg class="ck" viewBox="0 0 20 20" aria-hidden="true"><path pathLength="1" d="M5.5 10.5l3 3.2 6-7"/></svg></span><span class="ot"><span>${esc(o.texto)}</span></span></label>`).join("")}</div></details>` : ""}
     ${t.obs ? `<div class="small muted">${esc(t.obs)}</div>` : ""}
     ${t.link ? `<a class="small lnk" href="${esc(t.link)}" target="_blank" rel="noopener">${ICON.link}Abrir link da entrega</a>` : ""}
