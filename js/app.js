@@ -46,6 +46,8 @@ const ICON = (() => {
     sun: `<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>`,
     calendarX: `<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m14 14-4 4"/><path d="m10 14 4 4"/>`,
     lamp: `<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>`,
+    moon: `<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>`,
+    chevDown: `<path d="m6 9 6 6 6-6"/>`,
     flag: `<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/>`,
   };
   return Object.fromEntries(Object.entries(P).map(([k, v]) => [k, svg(v)]));
@@ -167,14 +169,40 @@ function analisar(d, notas) {
 }
 
 /* ---------- state ---------- */
-const COLS = ["disciplinas", "avaliacoes", "tarefas", "datas", "eventos", "certificados", "ligas", "faltas"];
-const S = { disciplinas: null, avaliacoes: null, tarefas: null, datas: null, eventos: null, certificados: null, ligas: null, faltas: null, regulamento: undefined };
+const COLS = ["disciplinas", "avaliacoes", "tarefas", "datas", "eventos", "certificados", "ligas", "faltas", "periodos"];
+const S = { disciplinas: null, avaliacoes: null, tarefas: null, datas: null, eventos: null, certificados: null, ligas: null, faltas: null, periodos: null, regulamento: undefined };
+/* ---------- períodos: RAW holds every document; S holds only the selected period (the Hub tab stays global) ----------
+   disciplinas, avaliações, tarefas and datas carry `periodo` ("2026.2"); a document without it belongs to PER_BASE.
+   faltas follow their disciplina. The list runs from 2026.1 to 2029.2, plus any extra doc in the periodos collection */
+const RAW = {};
+const SCOPED = ["disciplinas", "avaliacoes", "tarefas", "datas"];
+const PER_BASE = "2026.2";
+const perOf = x => x.periodo || PER_BASE;
+const perKey = id => { const [y, h] = String(id).split("."); return +y * 10 + +h; };
+function periodos() {
+  const ids = new Set();
+  for (let y = 2026; y <= 2029; y++) ids.add(`${y}.1`).add(`${y}.2`);
+  for (const p of RAW.periodos || []) if (/^\d{4}\.[12]$/.test(p.id)) ids.add(p.id);
+  return [...ids].sort((a, b) => perKey(a) - perKey(b)).map(id => ({ id, ...((RAW.periodos || []).find(p => p.id === id) || {}) }));
+}
+// the period today falls in: by the inicio/fim saved for it, else first half of the year = .1, second = .2
+function perAtual() {
+  const hit = periodos().find(p => p.inicio && p.fim && p.inicio <= TODAY_ISO && TODAY_ISO <= p.fim);
+  return hit ? hit.id : `${TODAY.getFullYear()}.${TODAY.getMonth() < 7 ? 1 : 2}`;
+}
+const perVazio = id => !SCOPED.some(c => (RAW[c] || []).some(x => perOf(x) === id));
+function applyPeriod() {
+  for (const c of SCOPED) S[c] = RAW[c] == null ? null : RAW[c].filter(x => perOf(x) === ui.per);
+  const ids = new Set((S.disciplinas || []).map(d => d.id));
+  S.faltas = RAW.faltas == null ? null : RAW.faltas.filter(f => ids.has(f.disciplinaId));
+  for (const c of ["eventos", "certificados", "ligas", "periodos"]) S[c] = RAW[c] ?? null;
+}
 let DB = null, ASSETS = null, dbState = "loading";
 const ui = {
   tab: "hoje", disc: store.get("disc", null), weekOff: 0,
   month: (() => { const d = new Date(TODAY); d.setDate(1); return d; })(), selDay: TODAY_ISO,
   hubView: store.get("hubView", "eventos"),
-  objOpen: {}, taskTab: "abertas",
+  objOpen: {}, taskTab: "abertas", per: store.get("per", null),
 };
 const list = c => S[c] || [];
 const discById = id => list("disciplinas").find(d => d.id === id);
@@ -258,6 +286,7 @@ function failMsg(e) {
 }
 async function saveDoc(col, id, data) {
   if (!DB) { toast("Os dados não estão disponíveis nesta visualização."); throw new Error("no db"); }
+  if (SCOPED.includes(col) && data.periodo == null) data = { ...data, periodo: ui.per };
   const ref = DB.collection(col).doc(id || undefined);
   return enqueue(ref.path, () => ref.set(data)).then(() => ref.id).catch(e => { toast(failMsg(e)); throw e; });
 }
@@ -307,6 +336,7 @@ function setTab(t, focus) {
   // the phone bar's sliding pill follows --i; .glow replays the light under it on every change
   const bar = $(".tabs");
   $$(".tabs a").forEach((a, i) => { if (a.dataset.tab === t) { a.setAttribute("aria-current", "page"); bar.style.setProperty("--i", i); } else a.removeAttribute("aria-current"); });
+  $$(".sb-nav a").forEach(a => a.dataset.tab === t ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
   if (was !== t) { bar.classList.remove("glow"); void bar.offsetWidth; bar.classList.add("glow"); }
   setFab(t);
   if (was !== t) revealTitle($(`#tab-${t} .disp`));
@@ -375,7 +405,7 @@ function renderAll() {
   // a re-render replaces the "Faltei" button that was just pressed, so hand focus back to its twin
   const a = document.activeElement;
   const fk = a && a.dataset && a.dataset.falta ? `[data-falta="${CSS.escape(a.dataset.falta)}"][data-fday="${CSS.escape(a.dataset.fday)}"]` : null;
-  renderHoje(); renderCalc(); renderOverview(); renderUpcoming(); renderCalendar(); renderTasks(); renderHub(); renderHours();
+  renderPer(); renderHoje(); renderCalc(); renderOverview(); renderUpcoming(); renderCalendar(); renderTasks(); renderHub(); renderHours();
   if (fk) $$(fk).find(el => el.offsetParent !== null)?.focus();
 }
 const loading = c => S[c] == null && dbState === "loading";
@@ -470,7 +500,7 @@ function renderWeek() {
   const el = $("#week");
   if (loading("disciplinas")) { el.innerHTML = loadingHtml; return; }
   const ds = list("disciplinas");
-  if (!ds.length) { el.innerHTML = `<div class="empty"><span class="empty-ic">${ICON.calendar}</span><b>Nenhuma disciplina ainda.</b><span>O horário da semana aparece quando as disciplinas forem cadastradas.</span></div>`; return; }
+  if (!ds.length) { el.innerHTML = `<div class="empty"><span class="empty-ic">${ICON.calendar}</span><b>Nenhuma disciplina em ${esc(ui.per)}.</b><span>O horário da semana aparece quando as disciplinas forem cadastradas.</span></div>`; return; }
   const slots = ds.flatMap(d => diasDe(d).map(h => ({ ...h, d })));
   // on a weekend the useful week is the next one
   const base = new Date(TODAY); const wd = base.getDay();
@@ -536,7 +566,7 @@ function renderCalc() {
   const ds = sortBy(list("disciplinas"), d => d.nome || "");
   if (!ds.length) {
     calcKey = "";
-    el.innerHTML = `<div class="empty"><span class="empty-ic">${ICON.calc}</span><b>Nenhuma disciplina ainda.</b><span>Mande o plano de ensino em PDF na conversa com o Claude, ou cadastre a fórmula à mão.</span><button class="btn primary" type="button" data-act="add-disc">${ICON.plus}Cadastrar disciplina</button></div>`;
+    el.innerHTML = `<div class="empty"><span class="empty-ic">${ICON.calc}</span><b>Nenhuma disciplina em ${esc(ui.per)}.</b><span>Mande o plano de ensino em PDF na conversa com o Claude, ou cadastre a fórmula à mão.</span><button class="btn primary" type="button" data-act="add-disc">${ICON.plus}Cadastrar disciplina</button></div>`;
     return;
   }
   const d = currentDisc();
@@ -1517,6 +1547,60 @@ $("#add-aval").addEventListener("click", () => avalForm());
 $("#add-data").addEventListener("click", () => dataForm());
 $("#add-task").addEventListener("click", () => taskForm());
 
+/* ---------- tema: the sidebar switch sets data-theme on <html>; without a saved choice the system theme rules ---------- */
+const sysDark = matchMedia("(prefers-color-scheme: dark)");
+const isDark = () => (document.documentElement.dataset.theme || (sysDark.matches ? "dark" : "light")) === "dark";
+function syncTheme() { $("#theme-sw").setAttribute("aria-checked", String(isDark())); }
+{ const t = store.get("theme", null); if (t === "dark" || t === "light") document.documentElement.dataset.theme = t; }
+$("#theme-sw").addEventListener("click", () => { const t = isDark() ? "light" : "dark"; document.documentElement.dataset.theme = t; store.set("theme", t); syncTheme(); });
+sysDark.addEventListener?.("change", syncTheme);
+syncTheme();
+
+/* ---------- seletor de período: chip in the header, a menu of radio items under it (a sheet from the bottom on phones) ---------- */
+if (!ui.per) ui.per = perAtual();
+function renderPer() {
+  const atual = perAtual();
+  $("#per-label").textContent = ui.per;
+  $("#per-btn").setAttribute("aria-label", `Período ${ui.per}${ui.per === atual ? ", atual" : ""}. Trocar período`);
+  $("#per-list").innerHTML = periodos().map(p => {
+    const vazio = perVazio(p.id), sel = p.id === ui.per;
+    return `<button type="button" role="menuitemradio" aria-checked="${sel}" data-per="${esc(p.id)}" class="${vazio ? "vazio" : ""}" tabindex="-1">
+      <span class="pl">${esc(p.id)}</span>${p.id === atual ? `<span class="pb">atual</span>` : vazio ? `<span class="pv">vazio</span>` : ""}<span class="pk">${sel ? ICON.check : ""}</span></button>`;
+  }).join("");
+  const note = $("#per-note");
+  if (ui.per === atual) { note.hidden = true; return; }
+  const quando = perKey(ui.per) < perKey(atual) ? "passado" : "futuro";
+  note.hidden = false;
+  note.innerHTML = `<span class="pn-ic">${ICON.calendar}</span><span>Você está vendo o período <b>${esc(ui.per)}</b> (${quando}${perVazio(ui.per) ? ", ainda vazio" : ""}). O que você cadastrar agora vai para ele.</span><button class="btn sm" type="button" data-per-go="${esc(atual)}">Voltar para ${esc(atual)}</button>`;
+}
+function setPer(id) {
+  if (id === ui.per) return;
+  ui.per = id; store.set("per", id); ui.disc = null;
+  applyPeriod(); renderAll();
+  toast(`Período ${id}`);
+}
+function perMenu(open, refocus) {
+  const m = $("#per-menu"), b = $("#per-btn");
+  if (open === !m.hidden) return;
+  m.hidden = !open; b.setAttribute("aria-expanded", String(open));
+  if (open) { const cur = $(`#per-list [aria-checked="true"]`) || $("#per-list button"); cur?.focus(); cur?.scrollIntoView({ block: "nearest" }); }
+  else if (refocus) b.focus();
+}
+$("#per-btn").addEventListener("click", () => perMenu($("#per-menu").hidden));
+$("#per-menu").addEventListener("click", e => {
+  const it = e.target.closest("[data-per]"); if (it) { perMenu(false, true); setPer(it.dataset.per); return; }
+  if (e.target === $("#per-menu")) perMenu(false, true);
+});
+$("#per-menu").addEventListener("keydown", e => {
+  const items = $$("#per-list [data-per]"), i = items.indexOf(document.activeElement);
+  if (e.key === "Escape") { e.preventDefault(); perMenu(false, true); }
+  else if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); items[(i + (e.key === "ArrowDown" ? 1 : items.length - 1)) % items.length].focus(); }
+  else if (e.key === "Home" || e.key === "End") { e.preventDefault(); items[e.key === "Home" ? 0 : items.length - 1].focus(); }
+  else if (e.key === "Tab") perMenu(false);
+});
+document.addEventListener("pointerdown", e => { if (!$("#per-menu").hidden && !e.target.closest(".per-box,#per-btn")) perMenu(false); });
+document.addEventListener("click", e => { const g = e.target.closest("[data-per-go]"); if (g) setPer(g.dataset.perGo); });
+
 /* ---------- boot ---------- */
 $("#today-label").textContent = `${WD[TODAY.getDay()]}, ${pad(TODAY.getDate())} de ${MES[TODAY.getMonth()]}`;
 setTab(location.hash.slice(1) || "hoje");
@@ -1533,19 +1617,19 @@ function waitClaude(ms) {
   if (!db) {
     clearTimeout(slow); dbState = "off";
     banner("Os dados salvos não estão disponíveis nesta visualização. Abra o app pelo Claude, conectado à sua conta.");
-    for (const c of COLS) S[c] = S[c] || [];
-    S.regulamento = null; schedule(); return;
+    for (const c of COLS) RAW[c] = RAW[c] || [];
+    applyPeriod(); S.regulamento = null; schedule(); return;
   }
   DB = db; dbState = "on";
   const settle = () => { clearTimeout(slow); banner(""); };
   for (const c of COLS) {
     db.collection(c).onSnapshot(snap => {
-      S[c] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      RAW[c] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       if (c === "disciplinas" && pend && pend.saved) pend = null;
-      if (c === "disciplinas") for (const d of S[c]) { /* drop stale drafts once the store confirms */ }
+      applyPeriod();
       if (!snap.metadata.fromCache) settle();
       schedule();
-    }, err => { S[c] = S[c] || []; settle(); if (err.code !== "revoked") toast("Não foi possível carregar parte dos dados."); schedule(); });
+    }, err => { RAW[c] = RAW[c] || []; applyPeriod(); settle(); if (err.code !== "revoked") toast("Não foi possível carregar parte dos dados."); schedule(); });
   }
   db.doc("config/regulamento").onSnapshot(s => { S.regulamento = s.exists ? s.data() : null; schedule(); }, () => { S.regulamento = null; schedule(); });
   try { ASSETS = await cl.use("assets"); } catch { ASSETS = null; }
