@@ -1038,3 +1038,17 @@ footer p{font-size:.82rem;color:var(--muted);margin:0}
 ::view-transition-old(root),::view-transition-new(root){animation-duration:.5s;animation-timing-function:cubic-bezier(.4,0,.2,1)}
 .theme-fade,.theme-fade *,.theme-fade *::before,.theme-fade *::after{
   transition:background-color .5s ease,color .5s ease,border-color .5s ease,outline-color .5s ease,box-shadow .5s ease,fill .5s ease,stroke .5s ease!important}
+
+/* ===== modo escuro no rodapé: phones and tablets have no sidebar, so the switch sits at the foot of the page ===== */
+.ft-theme{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:12px;width:100%;max-width:420px;min-height:52px;margin:0 0 16px;padding:0 14px 0 16px;
+  border:1px solid var(--line);border-radius:var(--r);background:var(--surface);color:var(--ink);font-weight:600;font-size:.95rem;box-shadow:var(--shadow);
+  -webkit-tap-highlight-color:transparent;transition:background .16s,border-color .16s}
+.ft-theme .ic{width:20px;height:20px;color:var(--steel)}
+.ft-theme:active{background:var(--surface-2)}
+.ft-theme:focus-visible{outline:2px solid var(--steel);outline-offset:2px}
+@media (hover:hover){.ft-theme:hover{border-color:var(--line-strong)}}
+.ft-sw{margin-left:auto;position:relative;flex:none;width:44px;height:26px;border-radius:999px;background:var(--line-strong);transition:background .2s}
+.ft-sw::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .22s var(--ease)}
+.ft-theme[aria-checked="true"] .ft-sw{background:#2F6AD0}
+.ft-theme[aria-checked="true"] .ft-sw::after{transform:translateX(18px)}
+@media (min-width:1024px){.ft-theme{display:none}}

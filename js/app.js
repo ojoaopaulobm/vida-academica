@@ -1550,18 +1550,19 @@ $("#add-task").addEventListener("click", () => taskForm());
 /* ---------- tema: the sidebar switch sets data-theme on <html>; without a saved choice the system theme rules ---------- */
 const sysDark = matchMedia("(prefers-color-scheme: dark)");
 const isDark = () => (document.documentElement.dataset.theme || (sysDark.matches ? "dark" : "light")) === "dark";
-function syncTheme() { $("#theme-sw").setAttribute("aria-checked", String(isDark())); }
+// two switches, same state: the sidebar one (desktop) and the one at the foot of the page (phone and tablet, where there is no sidebar)
+function syncTheme() { $$("[data-theme-sw]").forEach(b => b.setAttribute("aria-checked", String(isDark()))); }
 { const t = store.get("theme", null); if (t === "dark" || t === "light") document.documentElement.dataset.theme = t; }
 function applyTheme(t) { document.documentElement.dataset.theme = t; store.set("theme", t); syncTheme(); }
 // the switch fades the whole page from one theme to the other: a View Transition cross-fade where the browser has it,
 // else every color eases for the same time (.theme-fade); reduced motion swaps at once
-$("#theme-sw").addEventListener("click", () => {
+$$("[data-theme-sw]").forEach(b => b.addEventListener("click", () => {
   const t = isDark() ? "light" : "dark", root = document.documentElement;
   if (reduceMotion()) return applyTheme(t);
   if (document.startViewTransition) { document.startViewTransition(() => applyTheme(t)); return; }
   root.classList.add("theme-fade"); applyTheme(t);
   clearTimeout(root._fadeT); root._fadeT = setTimeout(() => root.classList.remove("theme-fade"), 520);
-});
+}));
 sysDark.addEventListener?.("change", syncTheme);
 syncTheme();
 
