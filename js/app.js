@@ -1552,9 +1552,126 @@ const sysDark = matchMedia("(prefers-color-scheme: dark)");
 const isDark = () => (document.documentElement.dataset.theme || (sysDark.matches ? "dark" : "light")) === "dark";
 function syncTheme() { $("#theme-sw").setAttribute("aria-checked", String(isDark())); }
 { const t = store.get("theme", null); if (t === "dark" || t === "light") document.documentElement.dataset.theme = t; }
-$("#theme-sw").addEventListener("click", () => { const t = isDark() ? "light" : "dark"; document.documentElement.dataset.theme = t; store.set("theme", t); syncTheme(); });
+function applyTheme(t) { document.documentElement.dataset.theme = t; store.set("theme", t); syncTheme(); }
+// the switch fades the whole page from one theme to the other: a View Transition cross-fade where the browser has it,
+// else every color eases for the same time (.theme-fade); reduced motion swaps at once
+$("#theme-sw").addEventListener("click", () => {
+  const t = isDark() ? "light" : "dark", root = document.documentElement;
+  if (reduceMotion()) return applyTheme(t);
+  if (document.startViewTransition) { document.startViewTransition(() => applyTheme(t)); return; }
+  root.classList.add("theme-fade"); applyTheme(t);
+  clearTimeout(root._fadeT); root._fadeT = setTimeout(() => root.classList.remove("theme-fade"), 520);
+});
 sysDark.addEventListener?.("change", syncTheme);
 syncTheme();
+
+/* ---------- barra lateral: Spell UI "animated gradient", the same WebGL2 shader rewritten for plain JS ----------
+   Speed 6.4 = 40% of the first 16, as the user asked. Custom preset in the app's navy/blue. It only runs while the sidebar is on screen (>= 1024px) and the tab is visible;
+   reduced motion gets one still frame; without WebGL2 the CSS gradient under the canvas stays */
+(() => {
+  const box = $(".sb-bg"), cv = box && box.querySelector("canvas");
+  const gl = cv && cv.getContext("webgl2", { premultipliedAlpha: true, alpha: true, antialias: true });
+  if (!gl) return;
+  const P = { color1: "#0A1428", color2: "#3D7CF0", color3: "#16336E", rotation: -50, proportion: 50, scale: 0.35, speed: 6.4,
+    distortion: 6, swirl: 60, swirlIterations: 8, softness: 100, offset: -260, shape: 0, shapeSize: 34 };
+  const VS = `#version 300 es
+in vec4 a_position;
+void main() { gl_Position = a_position; }`;
+  const FS = `#version 300 es
+precision highp float;
+uniform float u_time; uniform float u_pixelRatio; uniform vec2 u_resolution;
+uniform float u_scale; uniform float u_rotation; uniform vec4 u_color1; uniform vec4 u_color2; uniform vec4 u_color3;
+uniform float u_proportion; uniform float u_softness; uniform float u_shape; uniform float u_shapeScale;
+uniform float u_distortion; uniform float u_swirl; uniform float u_swirlIterations;
+out vec4 fragColor;
+#define TWO_PI 6.28318530718
+#define PI 3.14159265358979323846
+vec2 rotate(vec2 uv, float th) { return mat2(cos(th), sin(th), -sin(th), cos(th)) * uv; }
+float random(vec2 st) { return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123); }
+float noise(vec2 st) {
+  vec2 i = floor(st); vec2 f = fract(st);
+  float a = random(i); float b = random(i + vec2(1.0, 0.0)); float c = random(i + vec2(0.0, 1.0)); float d = random(i + vec2(1.0, 1.0));
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+vec4 blend_colors(vec4 c1, vec4 c2, vec4 c3, float mixer, float edgesWidth, float edge_blur) {
+  vec3 color1 = c1.rgb * c1.a; vec3 color2 = c2.rgb * c2.a; vec3 color3 = c3.rgb * c3.a;
+  float r1 = smoothstep(.0 + .35 * edgesWidth, .7 - .35 * edgesWidth + .5 * edge_blur, mixer);
+  float r2 = smoothstep(.3 + .35 * edgesWidth, 1. - .35 * edgesWidth + edge_blur, mixer);
+  vec3 blended_color_2 = mix(color1, color2, r1); float blended_opacity_2 = mix(c1.a, c2.a, r1);
+  return vec4(mix(blended_color_2, color3, r2), mix(blended_opacity_2, c3.a, r2));
+}
+void main() {
+  vec2 uv = gl_FragCoord.xy / u_resolution.xy;
+  float t = .5 * u_time;
+  float noise_scale = .0005 + .006 * u_scale;
+  uv -= .5; uv *= (noise_scale * u_resolution); uv = rotate(uv, u_rotation * .5 * PI); uv /= u_pixelRatio; uv += .5;
+  float n1 = noise(uv * 1. + t); float n2 = noise(uv * 2. - t); float angle = n1 * TWO_PI;
+  uv.x += 4. * u_distortion * n2 * cos(angle); uv.y += 4. * u_distortion * n2 * sin(angle);
+  float iterations_number = ceil(clamp(u_swirlIterations, 1., 30.));
+  for (float i = 1.; i <= iterations_number; i++) {
+    uv.x += clamp(u_swirl, 0., 2.) / i * cos(t + i * 1.5 * uv.y);
+    uv.y += clamp(u_swirl, 0., 2.) / i * cos(t + i * 1. * uv.x);
+  }
+  float proportion = clamp(u_proportion, 0., 1.);
+  float shape = 0.; float mixer = 0.;
+  if (u_shape < .5) {
+    vec2 checks_shape_uv = uv * (.5 + 3.5 * u_shapeScale);
+    shape = .5 + .5 * sin(checks_shape_uv.x) * cos(checks_shape_uv.y);
+    mixer = shape + .48 * sign(proportion - .5) * pow(abs(proportion - .5), .5);
+  } else if (u_shape < 1.5) {
+    vec2 stripes_shape_uv = uv * (.25 + 3. * u_shapeScale);
+    float f = fract(stripes_shape_uv.y);
+    shape = smoothstep(.0, .55, f) * smoothstep(1., .45, f);
+    mixer = shape + .48 * sign(proportion - .5) * pow(abs(proportion - .5), .5);
+  } else {
+    float sh = 1. - uv.y; sh -= .5; sh /= (noise_scale * u_resolution.y); sh += .5;
+    float shape_scaling = .2 * (1. - u_shapeScale);
+    shape = smoothstep(.45 - shape_scaling, .55 + shape_scaling, sh + .3 * (proportion - .5));
+    mixer = shape;
+  }
+  fragColor = blend_colors(u_color1, u_color2, u_color3, mixer, 1. - clamp(u_softness, 0., 1.), .01 + .01 * u_scale);
+}`;
+  const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return gl.getShaderParameter(s, gl.COMPILE_STATUS) ? s : null; };
+  const vs = sh(gl.VERTEX_SHADER, VS), fs = sh(gl.FRAGMENT_SHADER, FS); if (!vs || !fs) return;
+  const prog = gl.createProgram(); gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return;
+  gl.useProgram(prog);
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
+  const pos = gl.getAttribLocation(prog, "a_position"); gl.enableVertexAttribArray(pos); gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
+  const U = n => gl.getUniformLocation(prog, n);
+  const rgba = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255).concat(1);
+  // everything but time and size is fixed, so it is sent once
+  gl.uniform1f(U("u_scale"), P.scale); gl.uniform1f(U("u_rotation"), P.rotation * Math.PI / 180);
+  gl.uniform4f(U("u_color1"), ...rgba(P.color1)); gl.uniform4f(U("u_color2"), ...rgba(P.color2)); gl.uniform4f(U("u_color3"), ...rgba(P.color3));
+  gl.uniform1f(U("u_proportion"), P.proportion / 100); gl.uniform1f(U("u_softness"), P.softness / 100);
+  gl.uniform1f(U("u_shape"), P.shape); gl.uniform1f(U("u_shapeScale"), P.shapeSize / 100);
+  gl.uniform1f(U("u_distortion"), P.distortion / 50); gl.uniform1f(U("u_swirl"), P.swirl / 100);
+  gl.uniform1f(U("u_swirlIterations"), P.swirl === 0 ? 0 : P.swirlIterations);
+  const uTime = U("u_time"), uRes = U("u_resolution"), uPr = U("u_pixelRatio");
+  const wide = matchMedia("(min-width: 1024px)");
+  const t0 = performance.now(); let raf = 0;
+  const resize = () => {
+    const pr = window.devicePixelRatio || 1, w = box.clientWidth, h = box.clientHeight; if (!w || !h) return;
+    cv.width = Math.round(w * pr); cv.height = Math.round(h * pr);
+    gl.viewport(0, 0, cv.width, cv.height); gl.uniform2f(uRes, cv.width, cv.height); gl.uniform1f(uPr, pr);
+  };
+  const draw = now => { gl.uniform1f(uTime, (now - t0) / 1000 * (P.speed / 100) * 5 + P.offset * 0.01); gl.drawArrays(gl.TRIANGLES, 0, 6); };
+  const loop = now => { draw(now); raf = requestAnimationFrame(loop); };
+  const run = () => {
+    cancelAnimationFrame(raf); raf = 0;
+    if (!wide.matches || document.hidden) return;
+    resize();
+    if (reduceMotion()) draw(t0); else raf = requestAnimationFrame(loop);
+    box.classList.add("on");
+  };
+  wide.addEventListener?.("change", run);
+  document.addEventListener("visibilitychange", run);
+  matchMedia("(prefers-reduced-motion: reduce)").addEventListener?.("change", run);
+  if (window.ResizeObserver) new ResizeObserver(() => { resize(); if (!raf && wide.matches) draw(performance.now()); }).observe(box);
+  run();
+})();
 
 /* ---------- seletor de período: chip in the header, a menu of radio items under it (a sheet from the bottom on phones) ---------- */
 if (!ui.per) ui.per = perAtual();

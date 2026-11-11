@@ -994,12 +994,14 @@ footer p{font-size:.82rem;color:var(--muted);margin:0}
   :root{--sb-w:248px}
   body{padding-left:var(--sb-w)}
   .sidebar{position:fixed;z-index:7;inset:0 auto 0 0;width:var(--sb-w);display:flex;flex-direction:column;gap:28px;padding:28px 14px 18px;overflow:hidden auto;isolation:isolate;
-    color:#fff;background:linear-gradient(180deg,#0D1729 0%,#0A1222 100%);border-right:1px solid rgba(255,255,255,.07);box-shadow:8px 0 28px -20px rgba(0,0,0,.6)}
-  /* the diagonal blue light low on the panel */
-  .sidebar::before{content:"";position:absolute;z-index:-1;left:-35%;width:170%;top:56%;height:120px;transform:rotate(-30deg);pointer-events:none;
-    background:linear-gradient(180deg,transparent 0,rgba(37,92,190,.28) 38%,rgba(120,175,255,.6) 50%,rgba(37,92,190,.2) 56%,transparent 72%);
-    -webkit-mask-image:linear-gradient(90deg,transparent 18%,#000 72%,#000);mask-image:linear-gradient(90deg,transparent 18%,#000 72%,#000);filter:blur(5px)}
-  .sidebar::after{content:"";position:absolute;z-index:-1;inset:auto 0 0;height:55%;pointer-events:none;background:radial-gradient(80% 60% at 100% 55%,rgba(47,111,214,.18),transparent 70%)}
+    color:#fff;background:#081020;border-right:1px solid rgba(255,255,255,.07);box-shadow:8px 0 28px -20px rgba(0,0,0,.6)}
+  /* animated gradient (canvas from app.js) over a still CSS gradient, which is what shows without WebGL2; a light dark veil keeps the white text readable (Spell UI's grain PNG renders opaque here, so it is left out) */
+  .sb-bg{position:absolute;inset:0;z-index:-1;overflow:hidden;pointer-events:none;
+    background:radial-gradient(120% 60% at 90% 70%,rgba(42,95,196,.45),transparent 60%),radial-gradient(90% 50% at 0% 10%,rgba(42,95,196,.22),transparent 60%),linear-gradient(180deg,#0D1729,#081020)}
+  .sb-bg canvas{display:block;width:100%;height:100%;opacity:0;transition:opacity 1s ease}
+  .sb-bg.on canvas{opacity:1}
+  .sb-bg::after{content:"";position:absolute;inset:0;
+    background:linear-gradient(180deg,rgba(6,12,24,.34),rgba(6,12,24,.06) 45%,rgba(6,12,24,.24))}
   .sb-brand{display:flex;align-items:center;gap:12px;padding:0 8px}
   .sb-logo{width:44px;height:44px;flex:none;border-radius:12px;display:grid;place-items:center;color:#fff;
     background:linear-gradient(160deg,#3A73CF,#1B3E78);box-shadow:inset 0 1px 0 rgba(255,255,255,.28),inset 0 0 0 1px rgba(255,255,255,.08),0 8px 18px -10px rgba(47,111,214,.9)}
@@ -1011,7 +1013,7 @@ footer p{font-size:.82rem;color:var(--muted);margin:0}
   .sb-nav a .ic{width:20px;height:20px}
   .sb-nav a:hover{background:rgba(255,255,255,.06);color:#fff}
   .sb-nav a[aria-current="page"]{color:#fff;font-weight:600;background:linear-gradient(180deg,#2F6AD0,#1F4FA6);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.22),inset 0 0 0 1px rgba(255,255,255,.06),0 10px 22px -12px rgba(47,111,214,.95)}
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.28),inset 0 0 0 1px rgba(255,255,255,.18),0 10px 22px -10px rgba(4,10,24,.75)}
   .sb-nav a:focus-visible,.sb-theme:focus-visible{outline:2px solid #fff;outline-offset:-2px}
   .sb-foot{margin-top:auto;padding-top:16px;border-top:1px solid rgba(255,255,255,.08)}
   .sb-theme{all:unset;box-sizing:border-box;cursor:pointer;width:100%;display:flex;align-items:center;gap:12px;min-height:44px;padding:0 8px 0 10px;border-radius:12px;color:rgba(255,255,255,.82);font-size:.9rem;font-weight:500}
@@ -1031,3 +1033,8 @@ footer p{font-size:.82rem;color:var(--muted);margin:0}
   .toast{bottom:28px!important;left:calc(50% + var(--sb-w)/2)}
   footer{padding-bottom:calc(var(--fab) + 48px)!important}
 }
+
+/* ===== troca de tema: a cross-fade of the whole page (View Transitions), or every color easing together where that API is missing ===== */
+::view-transition-old(root),::view-transition-new(root){animation-duration:.5s;animation-timing-function:cubic-bezier(.4,0,.2,1)}
+.theme-fade,.theme-fade *,.theme-fade *::before,.theme-fade *::after{
+  transition:background-color .5s ease,color .5s ease,border-color .5s ease,outline-color .5s ease,box-shadow .5s ease,fill .5s ease,stroke .5s ease!important}
