@@ -14,9 +14,31 @@
 <body>
 
 <a class="skip" href="#main" data-skip>Pular para o conteúdo</a>
+<aside class="sidebar" aria-label="Menu lateral">
+  <div class="sb-bg" aria-hidden="true"><canvas></canvas></div>
+  <div class="sb-brand"><span class="sb-logo" data-ic="cap"></span><b>Vida<br>Acadêmica</b></div>
+  <nav class="sb-nav" aria-label="Seções">
+    <a href="#hoje" data-tab="hoje"><i data-ic="sun"></i><span>Hoje</span></a>
+    <a href="#media" data-tab="media"><i data-ic="calc"></i><span>Média</span></a>
+    <a href="#calendario" data-tab="calendario"><i data-ic="calendar"></i><span>Calendário</span></a>
+    <a href="#hub" data-tab="hub"><i data-ic="users"></i><span>Hub</span></a>
+  </nav>
+  <div class="sb-foot">
+    <button class="sb-theme" id="theme-sw" type="button" role="switch" aria-checked="false"><i data-ic="moon"></i><span>Modo escuro</span><span class="sb-sw" aria-hidden="true"></span></button>
+  </div>
+</aside>
 <header class="top">
   <div class="wrap">
     <div class="brand"><span class="logo" data-ic="cap"></span><b>Vida Acadêmica</b><span class="mono" id="today-label"></span></div>
+    <div class="per-box">
+      <button class="per-btn" id="per-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="per-menu"><i data-ic="calendar"></i><span id="per-label">2026.2</span><i data-ic="chevDown"></i></button>
+      <div class="per-menu" id="per-menu" hidden>
+        <div class="per-sheet" role="menu" aria-label="Períodos">
+          <p class="per-h">Período</p>
+          <div class="per-list" id="per-list"></div>
+        </div>
+      </div>
+    </div>
   </div>
   <div class="banner" id="banner" hidden><div class="wrap" id="banner-text"></div></div>
 </header>
@@ -28,6 +50,7 @@
 </nav>
 
 <main class="wrap" id="main">
+  <div class="per-note" id="per-note" role="status" hidden></div>
   <section id="tab-hoje" data-panel="hoje">
     <div class="head">
       <h1 class="disp">Hoje<span class="script" id="hoje-script">&nbsp;</span></h1>
